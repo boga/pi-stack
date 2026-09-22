@@ -72,6 +72,21 @@ cp .env.example .env
 # edit .env — at minimum set ROAMGATE_PASSWORD to a real secret
 ```
 
+### WORKSPACE_DIR must exist before the first `docker compose up`
+
+The `/workspace` bind mount uses Compose's long syntax with
+`bind.create_host_path: false`, so Compose will **refuse to start** with
+a clear `bind source path does not exist` error if the host directory
+named by `WORKSPACE_DIR` (default `./workspace`) doesn't already exist —
+it will NOT silently auto-create a root-owned directory the way Docker's
+classic short bind-mount syntax does. Create it yourself first:
+
+```bash
+mkdir -p "${WORKSPACE_DIR:-./workspace}"
+# On native Linux, also make sure it's owned/writable by PUID:PGID —
+# see the PUID/PGID section below.
+```
+
 ### PUID/PGID — read this before your first `docker compose up`
 
 `PUID`/`PGID` are baked into all three images at **build time** (each

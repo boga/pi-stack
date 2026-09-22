@@ -35,7 +35,11 @@ services:
       - herdr_state:/home/herdr/.config/herdr
       - pi_state:/home/herdr/.pi/agent
       - herdr_socket:/run/herdr:rw
-      - ${WORKSPACE_DIR:-./workspace}:/workspace:rw
+      - type: bind
+        source: ${WORKSPACE_DIR:-./workspace}
+        target: /workspace
+        bind:
+          create_host_path: false
     networks:
       - herdr_net
     healthcheck:
@@ -73,7 +77,11 @@ services:
     volumes:
       - pi_state:/home/pi/.pi/agent
       - herdr_socket:/run/herdr:ro
-      - ${WORKSPACE_DIR:-./workspace}:/workspace:rw
+      - type: bind
+        source: ${WORKSPACE_DIR:-./workspace}
+        target: /workspace
+        bind:
+          create_host_path: false
     networks:
       - herdr_net
     depends_on:
@@ -110,7 +118,11 @@ services:
     volumes:
       - roamgate_state:/home/roamgate/.config/herdr
       - herdr_socket:/run/herdr:ro
-      - ${WORKSPACE_DIR:-./workspace}:/workspace:rw
+      - type: bind
+        source: ${WORKSPACE_DIR:-./workspace}
+        target: /workspace
+        bind:
+          create_host_path: false
     ports:
       - "${ROAMGATE_BIND_ADDRESS:-127.0.0.1}:${ROAMGATE_HOST_PORT:-8787}:8787"
     networks:
