@@ -4,7 +4,7 @@
 # Usage: create-user.sh <username> <groupname> <uid> <gid> <home>
 #
 # Handles the case where the base image already has an account/group at the
-# requested numeric id (e.g. node:22-bookworm-slim ships "node" at 1000:1000,
+# requested numeric id (e.g. node:24-alpine ships "node" at 1000:1000,
 # which is also this stack's default PUID/PGID). Strategy:
 #   - UID collision with a DIFFERENT username: repurpose that account via
 #     `usermod -l <target> -d <home> -m -s /bin/bash <existing>` (reuses the

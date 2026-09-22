@@ -8,7 +8,15 @@ set -euo pipefail
 PI_VERSION="${1:?pi package version required, e.g. 0.87.0}"
 PACKAGE="@earendil-works/pi-coding-agent"
 
-npm install -g "${PACKAGE}@${PI_VERSION}"
+# --allow-scripts is explicit, not incidental: npm >=11 (bundled with
+# Node 24+) gates lifecycle scripts of *transitive* dependencies behind
+# an allowlist by default (npm <11, e.g. Node 22's bundled npm 10, ran
+# them unconditionally). Confirmed empirically that pi's own bundled
+# dist/bundle/cli.js never references esbuild (0 matches) and the
+# vendored esbuild binary runs fine even without its postinstall — so
+# this isn't fixing an observed break, it's matching the previous
+# npm-10 behavior exactly rather than relying on "seems to work anyway".
+npm install -g --allow-scripts=esbuild,protobufjs,@google/genai "${PACKAGE}@${PI_VERSION}"
 
 pkg_dir="$(npm root -g)/${PACKAGE}"
 if [ ! -d "$pkg_dir" ]; then

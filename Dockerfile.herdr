@@ -7,7 +7,7 @@
 # roamgate therefore need pi/git/gh/kubectl/bash available HERE — this image
 # intentionally duplicates the pi image's toolchain (Docker layer caching
 # de-duplicates identical layers on disk; see README.md "Shared toolchain").
-FROM node:22-bookworm-slim AS herdr
+FROM node:24-alpine AS herdr
 
 ARG PUID=1000
 ARG PGID=1000
@@ -33,8 +33,21 @@ COPY docker/lib/install-worktrunk.sh /usr/local/lib/herdr-docker/install-worktru
 COPY docker/lib/wait-for-herdr-socket.sh /usr/local/lib/herdr-docker/wait-for-herdr-socket.sh
 RUN chmod +x /usr/local/lib/herdr-docker/*.sh
 
-RUN /usr/local/lib/herdr-docker/create-user.sh herdr herdr "${PUID}" "${PGID}" /home/herdr
+# All docker/lib/*.sh scripts have a #!/bin/bash shebang, but Alpine's
+# node:*-alpine has no bash until install-toolchain.sh installs it -- and
+# that script IS one of the #!/bin/bash scripts. Break the chicken-and-egg
+# with a minimal bash-only install here, via Docker's default /bin/sh
+# (Alpine's ash, always present), before executing anything with a bash
+# shebang.
+RUN apk add --no-cache bash
+
+# install-toolchain.sh MUST run before create-user.sh: unlike Debian's
+# node:*-bookworm-slim, Alpine's node:*-alpine ships neither bash nor GNU
+# shadow-utils (useradd/groupadd/usermod/groupmod/getent) by default —
+# create-user.sh needs all of those, provided by the `shadow`+`bash`+
+# `coreutils` apk packages installed inside install-toolchain.sh.
 RUN /usr/local/lib/herdr-docker/install-toolchain.sh "${TARGETARCH}" "${GH_VERSION}" "${KUBECTL_VERSION}"
+RUN /usr/local/lib/herdr-docker/create-user.sh herdr herdr "${PUID}" "${PGID}" /home/herdr
 RUN /usr/local/lib/herdr-docker/install-herdr.sh "${HERDR_VERSION}" "${TARGETARCH}" "${HERDR_SHA256_AMD64}" "${HERDR_SHA256_ARM64}"
 RUN /usr/local/lib/herdr-docker/install-pi.sh "${PI_PACKAGE_VERSION}"
 RUN /usr/local/lib/herdr-docker/install-worktrunk.sh "${WORKTRUNK_VERSION}" "${TARGETARCH}"

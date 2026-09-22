@@ -307,16 +307,26 @@ live socket files.
 
 ## Shared toolchain rationale
 
-`herdr` and `pi` are built `FROM node:22-bookworm-slim` and install an
-identical toolchain (`docker/lib/install-toolchain.sh`) plus the `pi` npm
-package (`docker/lib/install-pi.sh`), the `herdr` binary
+`herdr` and `pi` are built `FROM node:24-alpine` and install an identical
+toolchain (`docker/lib/install-toolchain.sh`, via `apk`) plus the `pi`
+npm package (`docker/lib/install-pi.sh`), the `herdr` binary
 (`docker/lib/install-herdr.sh`), and `worktrunk`/`wt`
-(`docker/lib/install-worktrunk.sh`, a static musl binary, portable
-regardless of the base image's libc). This is intentional duplication,
+(`docker/lib/install-worktrunk.sh`). This is intentional duplication,
 not an oversight: herdr spawns pane child processes inside *its own*
 container, so panes started from roamgate need
 `pi`/`git`/`gh`/`kubectl`/`wt` available in the `herdr` image too, or the
-stack is wired but useless. Docker's layer
+stack is wired but useless.
+
+Alpine was chosen over Debian for these two images specifically because
+worktrunk requires Git 2.43+, which Debian bookworm's own repos don't
+provide (2.39.5) without either mixing distributions ("Frankendebian") or
+building git from source; Alpine 3.21 (bundled in `node:24-alpine`) ships
+Git 2.54 directly. All the binaries this stack installs (`herdr`, `gh`,
+`kubectl`, `worktrunk`) are statically linked, so they run unmodified on
+musl -- confirmed empirically, not assumed. `roamgate` stays on
+`debian:bookworm-slim` (see `Dockerfile.roamgate`): its upstream release
+is a dynamically glibc-linked Bun binary with no musl build available, so
+it's the one image in this stack that genuinely needs glibc. Docker's layer
 cache de-duplicates identical layers on disk, so "two full images" is
 mostly a disk-usage non-issue, not a real cost. `herdr` and `pi` remain
 separate containers/services — separate lifecycle/failure domains is
