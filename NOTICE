@@ -37,7 +37,20 @@ image is built, it contains and redistributes the upstream binary/package).
    - Installed as binaries only (no credential wiring in this pass; see
      README.md "Known limitations"). gh is MIT-licensed; kubectl is
      Apache-2.0. See /usr/share/licenses/gh/LICENSE and
-     /usr/share/licenses/kubectl/NOTE inside the built images.
+     /usr/share/licenses/kubectl/LICENSE inside the built images (both are
+     the real upstream license text, fetched at build time).
+
+5. worktrunk (`wt`)
+   - Source: https://github.com/max-sixty/worktrunk
+   - Version pinned: v0.79.0
+   - License: dual-licensed MIT OR Apache-2.0 (your choice), Copyright (c)
+     2025 Maximilian Roos
+   - License text bundled at: /usr/share/licenses/worktrunk/LICENSE (the
+     combined dual-license text shipped inside the upstream release
+     archive itself, copied verbatim at build time)
+   - Installed as a static musl binary (portable regardless of the base
+     image's libc), used for `git` worktree management inside the herdr
+     and pi containers.
 
 Out of scope for this pass
 ---------------------------

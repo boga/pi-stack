@@ -12,19 +12,21 @@ ARG GH_VERSION=2.101.0
 ARG KUBECTL_VERSION=v1.37.0
 ARG HERDR_VERSION=0.9.1
 ARG PI_PACKAGE_VERSION=0.87.0
+ARG WORKTRUNK_VERSION=0.79.0
 ARG HERDR_SHA256_AMD64=2a02fed16beb651ef006e1d43f048f652ca4dc58ad053cd2d44450563d5c54b7
 ARG HERDR_SHA256_ARM64=f4ccf4de745f2cb9a39a983e9ba3703dad50ec2a58dea83026ceab721bbd8d9e
 ARG TARGETARCH
 
 LABEL org.opencontainers.image.title="pi-roamgate-docker / pi" \
-      org.opencontainers.image.description="pi coding agent, packaged with the herdr CLI + gh + kubectl toolchain" \
-      org.opencontainers.image.licenses="MIT AND Apache-2.0" \
+      org.opencontainers.image.description="pi coding agent, packaged with the herdr CLI + gh + kubectl + worktrunk toolchain" \
+      org.opencontainers.image.licenses="MIT AND Apache-2.0 AND (MIT OR Apache-2.0)" \
       org.opencontainers.image.source="https://github.com/earendil-works/pi"
 
 COPY docker/lib/create-user.sh /usr/local/lib/herdr-docker/create-user.sh
 COPY docker/lib/install-toolchain.sh /usr/local/lib/herdr-docker/install-toolchain.sh
 COPY docker/lib/install-herdr.sh /usr/local/lib/herdr-docker/install-herdr.sh
 COPY docker/lib/install-pi.sh /usr/local/lib/herdr-docker/install-pi.sh
+COPY docker/lib/install-worktrunk.sh /usr/local/lib/herdr-docker/install-worktrunk.sh
 COPY docker/lib/wait-for-herdr-socket.sh /usr/local/lib/herdr-docker/wait-for-herdr-socket.sh
 RUN chmod +x /usr/local/lib/herdr-docker/*.sh
 
@@ -32,6 +34,7 @@ RUN /usr/local/lib/herdr-docker/create-user.sh pi pi "${PUID}" "${PGID}" /home/p
 RUN /usr/local/lib/herdr-docker/install-toolchain.sh "${TARGETARCH}" "${GH_VERSION}" "${KUBECTL_VERSION}"
 RUN /usr/local/lib/herdr-docker/install-herdr.sh "${HERDR_VERSION}" "${TARGETARCH}" "${HERDR_SHA256_AMD64}" "${HERDR_SHA256_ARM64}"
 RUN /usr/local/lib/herdr-docker/install-pi.sh "${PI_PACKAGE_VERSION}"
+RUN /usr/local/lib/herdr-docker/install-worktrunk.sh "${WORKTRUNK_VERSION}" "${TARGETARCH}"
 
 COPY docker/pi-entrypoint.sh /usr/local/bin/pi-entrypoint.sh
 RUN chmod +x /usr/local/bin/pi-entrypoint.sh
@@ -54,6 +57,7 @@ RUN mkdir -p /run/herdr /home/pi/.pi/agent /workspace \
 USER pi:pi
 WORKDIR /workspace
 ENV HOME=/home/pi
+ENV SHELL=/bin/bash
 # Deliberately UNSET here: HERDR_ENV is meant to be injected by herdr into
 # real pane child processes with a truthful HERDR_PANE_ID. This standalone
 # container cannot supply a truthful one, so we do not fake it. See

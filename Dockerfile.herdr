@@ -15,19 +15,21 @@ ARG GH_VERSION=2.101.0
 ARG KUBECTL_VERSION=v1.37.0
 ARG HERDR_VERSION=0.9.1
 ARG PI_PACKAGE_VERSION=0.87.0
+ARG WORKTRUNK_VERSION=0.79.0
 ARG HERDR_SHA256_AMD64=2a02fed16beb651ef006e1d43f048f652ca4dc58ad053cd2d44450563d5c54b7
 ARG HERDR_SHA256_ARM64=f4ccf4de745f2cb9a39a983e9ba3703dad50ec2a58dea83026ceab721bbd8d9e
 ARG TARGETARCH
 
 LABEL org.opencontainers.image.title="pi-roamgate-docker / herdr" \
-      org.opencontainers.image.description="herdr control plane, packaged with the pi coding agent + gh + kubectl toolchain for pane child processes" \
-      org.opencontainers.image.licenses="Apache-2.0 AND MIT" \
+      org.opencontainers.image.description="herdr control plane, packaged with the pi coding agent + gh + kubectl + worktrunk toolchain for pane child processes" \
+      org.opencontainers.image.licenses="Apache-2.0 AND MIT AND (MIT OR Apache-2.0)" \
       org.opencontainers.image.source="https://github.com/herdrdev/herdr"
 
 COPY docker/lib/create-user.sh /usr/local/lib/herdr-docker/create-user.sh
 COPY docker/lib/install-toolchain.sh /usr/local/lib/herdr-docker/install-toolchain.sh
 COPY docker/lib/install-herdr.sh /usr/local/lib/herdr-docker/install-herdr.sh
 COPY docker/lib/install-pi.sh /usr/local/lib/herdr-docker/install-pi.sh
+COPY docker/lib/install-worktrunk.sh /usr/local/lib/herdr-docker/install-worktrunk.sh
 COPY docker/lib/wait-for-herdr-socket.sh /usr/local/lib/herdr-docker/wait-for-herdr-socket.sh
 RUN chmod +x /usr/local/lib/herdr-docker/*.sh
 
@@ -35,6 +37,7 @@ RUN /usr/local/lib/herdr-docker/create-user.sh herdr herdr "${PUID}" "${PGID}" /
 RUN /usr/local/lib/herdr-docker/install-toolchain.sh "${TARGETARCH}" "${GH_VERSION}" "${KUBECTL_VERSION}"
 RUN /usr/local/lib/herdr-docker/install-herdr.sh "${HERDR_VERSION}" "${TARGETARCH}" "${HERDR_SHA256_AMD64}" "${HERDR_SHA256_ARM64}"
 RUN /usr/local/lib/herdr-docker/install-pi.sh "${PI_PACKAGE_VERSION}"
+RUN /usr/local/lib/herdr-docker/install-worktrunk.sh "${WORKTRUNK_VERSION}" "${TARGETARCH}"
 
 COPY docker/herdr-entrypoint.sh /usr/local/bin/herdr-entrypoint.sh
 RUN chmod +x /usr/local/bin/herdr-entrypoint.sh
@@ -49,6 +52,10 @@ RUN mkdir -p /run/herdr /home/herdr/.config/herdr /home/herdr/.pi/agent /workspa
 USER herdr:herdr
 WORKDIR /workspace
 ENV HOME=/home/herdr
+# herdr spawns pane child processes using $SHELL; without this it falls
+# back to /bin/sh. The herdr user's passwd shell is already /bin/bash (see
+# create-user.sh), but $SHELL isn't inherited from that unless set here.
+ENV SHELL=/bin/bash
 
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=6 \
   CMD test -S /run/herdr/herdr.sock && test -S /run/herdr/herdr-client.sock

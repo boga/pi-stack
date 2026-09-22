@@ -22,6 +22,7 @@ services:
         KUBECTL_VERSION: ${KUBECTL_VERSION:-v1.37.0}
         HERDR_VERSION: ${HERDR_VERSION:-0.9.1}
         PI_PACKAGE_VERSION: ${PI_PACKAGE_VERSION:-0.87.0}
+        WORKTRUNK_VERSION: ${WORKTRUNK_VERSION:-0.79.0}
     image: pi-roamgate/herdr:${HERDR_VERSION:-0.9.1}
     user: "${PUID:-1000}:${PGID:-1000}"
     init: true
@@ -61,6 +62,7 @@ services:
         KUBECTL_VERSION: ${KUBECTL_VERSION:-v1.37.0}
         HERDR_VERSION: ${HERDR_VERSION:-0.9.1}
         PI_PACKAGE_VERSION: ${PI_PACKAGE_VERSION:-0.87.0}
+        WORKTRUNK_VERSION: ${WORKTRUNK_VERSION:-0.79.0}
     image: pi-roamgate/pi:${PI_PACKAGE_VERSION:-0.87.0}
     user: "${PUID:-1000}:${PGID:-1000}"
     init: true

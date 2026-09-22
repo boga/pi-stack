@@ -20,7 +20,8 @@ Three services, one bridge network, four named volumes:
   (`~/.config/herdr`). No published ports — herdr has no TCP listener.
   **herdr spawns pane child processes inside its own container's
   filesystem**, so this image carries the full toolchain (node, pi, git,
-  gh, kubectl, bash, openssh-client) — not just the bare herdr binary.
+  gh, kubectl, worktrunk, bash, openssh-client) — not just the bare
+  herdr binary.
 - `pi` — no daemon mode exists for pi, so the container just runs
   `sleep infinity`; you attach with
   `docker compose exec -it pi pi`. Mounts `herdr_socket` read-only and
@@ -308,11 +309,14 @@ live socket files.
 
 `herdr` and `pi` are built `FROM node:22-bookworm-slim` and install an
 identical toolchain (`docker/lib/install-toolchain.sh`) plus the `pi` npm
-package (`docker/lib/install-pi.sh`) and the `herdr` binary
-(`docker/lib/install-herdr.sh`). This is intentional duplication, not an
-oversight: herdr spawns pane child processes inside *its own* container,
-so panes started from roamgate need `pi`/`git`/`gh`/`kubectl` available in
-the `herdr` image too, or the stack is wired but useless. Docker's layer
+package (`docker/lib/install-pi.sh`), the `herdr` binary
+(`docker/lib/install-herdr.sh`), and `worktrunk`/`wt`
+(`docker/lib/install-worktrunk.sh`, a static musl binary, portable
+regardless of the base image's libc). This is intentional duplication,
+not an oversight: herdr spawns pane child processes inside *its own*
+container, so panes started from roamgate need
+`pi`/`git`/`gh`/`kubectl`/`wt` available in the `herdr` image too, or the
+stack is wired but useless. Docker's layer
 cache de-duplicates identical layers on disk, so "two full images" is
 mostly a disk-usage non-issue, not a real cost. `herdr` and `pi` remain
 separate containers/services — separate lifecycle/failure domains is
@@ -321,4 +325,5 @@ correct even though they share a toolchain.
 ## Licensing
 
 See `LICENSE` (this repo's own packaging work, MIT) and `NOTICE`
-(third-party attributions for herdr, roamgate, pi, gh, and kubectl).
+(third-party attributions for herdr, roamgate, pi, gh, kubectl, and
+worktrunk).
