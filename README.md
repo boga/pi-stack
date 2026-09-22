@@ -31,11 +31,12 @@ Three services, one bridge network, four named volumes:
   fundamentally a Herdr client sharing Herdr's config namespace, but this
   is a separate named volume from herdr's own state).
 
-All three bind-mount `./workspace` at the identical path `/workspace`,
-read-write. This matters because herdr reports absolute paths for pane
-CWDs, and those paths must resolve identically in all three containers
-(file preview/diff in roamgate, edits from pi) — same absolute path, no
-translation needed.
+All three bind-mount the directory named by `WORKSPACE_DIR` (defaults to
+`./workspace` if unset — see `.env.example`) at the identical path
+`/workspace`, read-write. This matters because herdr reports absolute
+paths for pane CWDs, and those paths must resolve identically in all
+three containers (file preview/diff in roamgate, edits from pi) — same
+absolute path, no translation needed.
 
 `pi_state` is intentionally shared into **both** the `pi` container
 (`/home/pi/.pi/agent`) and the `herdr` container
@@ -86,8 +87,8 @@ these volumes.** Rebuilding the images after changing `PUID`/`PGID` only
 fixes ownership of freshly-created mountpoints in a **new** volume — it
 does nothing to already-populated `herdr_state`, `pi_state`,
 `roamgate_state`, or `herdr_socket` volumes. On native Linux, it also
-doesn't touch the host-owned `./workspace` directory, which is owned by
-whatever host UID created it.
+doesn't touch the host-owned `WORKSPACE_DIR` directory (`./workspace` by
+default), which is owned by whatever host UID created it.
 
 #### Changing PUID/PGID after first run
 
@@ -122,7 +123,7 @@ for vol in pi-roamgate_herdr_state pi-roamgate_pi_state pi-roamgate_roamgate_sta
 done
 
 # Compose can't reach outside itself — chown the host bind mount directly:
-sudo chown -R "${NEW_UID}:${NEW_GID}" ./workspace
+sudo chown -R "${NEW_UID}:${NEW_GID}" "${WORKSPACE_DIR:-./workspace}"
 
 # then update .env and rebuild:
 docker compose build
