@@ -18,7 +18,7 @@ ARG TARGETARCH
 
 LABEL org.opencontainers.image.title="pi-roamgate-docker / pi" \
       org.opencontainers.image.description="pi coding agent, packaged with the herdr CLI + gh + kubectl toolchain" \
-      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.licenses="MIT AND Apache-2.0" \
       org.opencontainers.image.source="https://github.com/earendil-works/pi"
 
 COPY docker/lib/create-user.sh /usr/local/lib/herdr-docker/create-user.sh

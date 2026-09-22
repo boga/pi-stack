@@ -55,8 +55,14 @@ can't supply a truthful one, so we don't fake it.
 ## Prerequisites
 
 - Docker Engine + Compose v2 (`docker compose version`)
-- This host's architecture: amd64 or arm64 (both are pinned/checksummed;
-  see `.env.example` for version pins)
+- This host's architecture: amd64 or arm64. Both are pinned and
+  checksum-verified at build time (see `.env.example` for version pins),
+  but **only arm64 has actually been built and run/tested** during this
+  implementation (the development host is Apple Silicon/arm64). amd64's
+  build-time correctness rests solely on the checksum match against
+  upstream's published digests — it has not been executed or smoke-tested
+  on real amd64 hardware/emulation. Treat an amd64 build as unverified at
+  runtime until someone actually runs it on amd64.
 
 ## Setup
 
@@ -96,11 +102,22 @@ docker compose up -d
 
 Option B — migrate in place (preserves session state):
 
+**Note on volume names:** Compose prefixes every named volume declared in
+`compose.yaml` with the project name to get the *actual* Docker volume
+name (e.g. `herdr_state` becomes `pi-roamgate_herdr_state`). This repo
+pins the project name via the top-level `name: pi-roamgate` key in
+`compose.yaml` specifically so this prefix can't silently drift (it would
+otherwise default to the working directory's basename, which changes if
+you clone/rename the checkout directory). The commands below hardcode
+that resolved prefix. If you ever change `compose.yaml`'s `name:` field,
+update these commands to match — or resolve the prefix dynamically with
+`docker volume ls -q --filter "label=com.docker.compose.project=$(docker compose config --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["name"])')"`.
+
 ```bash
 NEW_UID=1001
 NEW_GID=1001
 
-for vol in herdr_state pi_state roamgate_state herdr_socket; do
+for vol in pi-roamgate_herdr_state pi-roamgate_pi_state pi-roamgate_roamgate_state pi-roamgate_herdr_socket; do
   docker run --rm -v "${vol}:/data" alpine chown -R "${NEW_UID}:${NEW_GID}" /data
 done
 
@@ -197,15 +214,22 @@ docker compose down && docker compose up -d          # state survives in named v
 
 ## Backup / restore of named volumes
 
+**Note on volume names:** as above, these are the *actual* Docker volume
+names (Compose project-name-prefixed, per the pinned `name: pi-roamgate`
+in `compose.yaml`), not the bare names declared under `compose.yaml`'s
+`volumes:` key. Verify with `docker volume ls | grep pi-roamgate` or
+`docker compose config --volumes` (which prints the bare names Compose
+will prefix) before running these against a real environment.
+
 ```bash
 # backup
-for vol in herdr_state pi_state roamgate_state; do
+for vol in pi-roamgate_herdr_state pi-roamgate_pi_state pi-roamgate_roamgate_state; do
   docker run --rm -v "${vol}:/data" -v "$(pwd):/backup" alpine \
     tar -C /data -czf "/backup/${vol}.tar.gz" .
 done
 
 # restore (into a fresh volume)
-for vol in herdr_state pi_state roamgate_state; do
+for vol in pi-roamgate_herdr_state pi-roamgate_pi_state pi-roamgate_roamgate_state; do
   docker volume create "${vol}"
   docker run --rm -v "${vol}:/data" -v "$(pwd):/backup" alpine \
     tar -C /data -xzf "/backup/${vol}.tar.gz"
@@ -253,11 +277,16 @@ live socket files.
   have not been fully inventoried; do this before any registry
   publication of these images.
 - amd64 and arm64 are both pinned and checksum-verified for herdr and
-  roamgate binaries (verified against upstream `.sha256` sidecars / asset
-  digests during this implementation). `gh` and `kubectl` verify against
-  their own release-provided checksum files at build time rather than a
-  hardcoded digest in this repo, since both projects publish trustworthy
-  per-release checksum files over HTTPS.
+  roamgate binaries (independently verified against upstream `.sha256`
+  sidecars / asset digests during this implementation). `gh` and
+  `kubectl` verify against their own release-provided checksum files at
+  build time rather than a hardcoded digest in this repo, since both
+  projects publish trustworthy per-release checksum files over HTTPS.
+  **This checksum verification was done for both architectures, but only
+  arm64 was actually built and run/tested** on this (Apple Silicon) host
+  — amd64's correctness at runtime rests on the checksum match alone, not
+  on an executed smoke test. Do not read "checksum-verified" as
+  "validated equivalently on both architectures."
 
 ## Shared toolchain rationale
 

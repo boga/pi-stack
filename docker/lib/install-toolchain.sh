@@ -56,10 +56,11 @@ curl -fsSL -o kubectl.sha256 "${KUBECTL_URL}.sha256"
 echo "$(cat kubectl.sha256)  kubectl" | sha256sum -c -
 install -m 0755 kubectl /usr/local/bin/kubectl
 mkdir -p /usr/share/licenses/kubectl
-cat > /usr/share/licenses/kubectl/NOTE <<'EOF'
-kubectl is distributed under the Apache License 2.0 (https://github.com/kubernetes/kubernetes/blob/master/LICENSE).
-Only the binary is bundled here; full source/license text is not vendored in this image to keep it small.
-EOF
+# Fetch the real Apache-2.0 license text from the kubernetes/kubernetes repo
+# at the exact pinned tag (kubectl ships from that monorepo and is licensed
+# under it), rather than just a NOTE pointing at it.
+curl -fsSL -o /usr/share/licenses/kubectl/LICENSE \
+  "https://raw.githubusercontent.com/kubernetes/kubernetes/${KUBECTL_VERSION}/LICENSE"
 
 gh --version
 kubectl version --client

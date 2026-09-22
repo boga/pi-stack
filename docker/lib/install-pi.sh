@@ -21,8 +21,19 @@ license_file="$(find "$pkg_dir" -maxdepth 1 -iname 'LICENSE*' | head -n1)"
 if [ -n "$license_file" ]; then
   cp "$license_file" /usr/share/licenses/pi/LICENSE
 else
-  echo "install-pi.sh: WARNING — no LICENSE file found in $pkg_dir; recording package metadata only" >&2
-  node -e "console.log(require('${pkg_dir}/package.json').license || 'UNKNOWN')" > /usr/share/licenses/pi/LICENSE-SPDX-ID.txt
+  # The published npm tarball for @earendil-works/pi-coding-agent does not
+  # include a LICENSE file (confirmed empirically: `npm pack` + `tar tzf`
+  # show no LICENSE/LICENSE.md/COPYING entry as of 0.87.0), even though
+  # package.json declares "license": "MIT". Fetch the real MIT license
+  # text from the upstream source repo at the matching git tag instead of
+  # writing an SPDX-identifier stub, so a real license text is always
+  # bundled.
+  echo "install-pi.sh: no LICENSE file in npm package; fetching real MIT text from upstream source repo tag v${PI_VERSION}" >&2
+  if ! curl -fsSL -o /usr/share/licenses/pi/LICENSE \
+      "https://raw.githubusercontent.com/earendil-works/pi/v${PI_VERSION}/LICENSE"; then
+    echo "install-pi.sh: FATAL — could not fetch LICENSE from https://raw.githubusercontent.com/earendil-works/pi/v${PI_VERSION}/LICENSE" >&2
+    exit 1
+  fi
 fi
 
 pi --version
