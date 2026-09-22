@@ -1,0 +1,6 @@
+*
+!docker/
+!docker/**
+!Dockerfile.pi
+!Dockerfile.herdr
+!Dockerfile.roamgate

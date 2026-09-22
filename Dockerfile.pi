@@ -1,0 +1,63 @@
+# syntax=docker/dockerfile:1
+#
+# pi coding-agent image. Shares the herdr image's toolchain (node, git, gh,
+# kubectl, bash, openssh-client) plus the herdr CLI binary itself, so this
+# container can query herdr's API (`herdr status server`, `herdr workspace
+# list`, ...) even though it does not run the herdr server.
+FROM node:22-bookworm-slim AS pi
+
+ARG PUID=1000
+ARG PGID=1000
+ARG GH_VERSION=2.101.0
+ARG KUBECTL_VERSION=v1.37.0
+ARG HERDR_VERSION=0.9.1
+ARG PI_PACKAGE_VERSION=0.87.0
+ARG HERDR_SHA256_AMD64=2a02fed16beb651ef006e1d43f048f652ca4dc58ad053cd2d44450563d5c54b7
+ARG HERDR_SHA256_ARM64=f4ccf4de745f2cb9a39a983e9ba3703dad50ec2a58dea83026ceab721bbd8d9e
+ARG TARGETARCH
+
+LABEL org.opencontainers.image.title="pi-roamgate-docker / pi" \
+      org.opencontainers.image.description="pi coding agent, packaged with the herdr CLI + gh + kubectl toolchain" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.source="https://github.com/earendil-works/pi"
+
+COPY docker/lib/create-user.sh /usr/local/lib/herdr-docker/create-user.sh
+COPY docker/lib/install-toolchain.sh /usr/local/lib/herdr-docker/install-toolchain.sh
+COPY docker/lib/install-herdr.sh /usr/local/lib/herdr-docker/install-herdr.sh
+COPY docker/lib/install-pi.sh /usr/local/lib/herdr-docker/install-pi.sh
+COPY docker/lib/wait-for-herdr-socket.sh /usr/local/lib/herdr-docker/wait-for-herdr-socket.sh
+RUN chmod +x /usr/local/lib/herdr-docker/*.sh
+
+RUN /usr/local/lib/herdr-docker/create-user.sh pi pi "${PUID}" "${PGID}" /home/pi
+RUN /usr/local/lib/herdr-docker/install-toolchain.sh "${TARGETARCH}" "${GH_VERSION}" "${KUBECTL_VERSION}"
+RUN /usr/local/lib/herdr-docker/install-herdr.sh "${HERDR_VERSION}" "${TARGETARCH}" "${HERDR_SHA256_AMD64}" "${HERDR_SHA256_ARM64}"
+RUN /usr/local/lib/herdr-docker/install-pi.sh "${PI_PACKAGE_VERSION}"
+
+COPY docker/pi-entrypoint.sh /usr/local/bin/pi-entrypoint.sh
+RUN chmod +x /usr/local/bin/pi-entrypoint.sh
+
+# Pre-create every volume mountpoint at build time, owned by the target
+# user, so a fresh named Docker volume inherits this ownership on first
+# mount (local-driver copy-up semantics) — no runtime chown ever needed.
+#
+# /run/herdr is chowned identically in Dockerfile.herdr, Dockerfile.pi and
+# Dockerfile.roamgate on purpose: Compose creates all three containers
+# (and thus all three mounts of the SAME shared herdr_socket volume)
+# before starting any of them, and which image's mountpoint content wins
+# the volume's initial copy-up is a race, not something to rely on
+# ordering for. Keeping ownership identical across all three images makes
+# the race moot.
+RUN mkdir -p /run/herdr /home/pi/.pi/agent /workspace \
+    && chmod 0700 /run/herdr \
+    && chown -R "${PUID}:${PGID}" /run/herdr /home/pi /workspace
+
+USER pi:pi
+WORKDIR /workspace
+ENV HOME=/home/pi
+# Deliberately UNSET here: HERDR_ENV is meant to be injected by herdr into
+# real pane child processes with a truthful HERDR_PANE_ID. This standalone
+# container cannot supply a truthful one, so we do not fake it. See
+# .env.example for the long-form note.
+
+ENTRYPOINT ["/usr/local/bin/pi-entrypoint.sh"]
+CMD ["sleep", "infinity"]

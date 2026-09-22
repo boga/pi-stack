@@ -1,0 +1,52 @@
+pi-roamgate-docker — third-party attributions
+===============================================
+
+This repository packages three upstream projects into Docker images. It
+redistributes each project's compiled/installed artifacts inside those
+images (this is packaging, not merely "download at build time" — once an
+image is built, it contains and redistributes the upstream binary/package).
+
+1. herdr
+   - Source: https://github.com/herdrdev/herdr
+   - Version pinned: v0.9.1
+   - License: Apache License 2.0
+   - License text bundled at: /usr/share/licenses/herdr/LICENSE (fetched
+     from the pinned git tag at build time)
+   - Note: there is no upstream root NOTICE file to propagate for this
+     project as of v0.9.1.
+
+2. roamgate
+   - Source: https://github.com/powerfooI/roamgate
+   - Version pinned: v0.7.8
+   - License: MIT, Copyright (c) 2026 Arthur
+   - License text bundled at: /usr/share/licenses/roamgate/LICENSE (fetched
+     from the pinned git tag at build time)
+   - Bundled fonts and brand assets in roamgate's own embedded web UI retain
+     their original terms per roamgate's own THIRD_PARTY_NOTICES.md; not
+     reproduced here.
+
+3. pi (pi coding agent)
+   - Package: @earendil-works/pi-coding-agent (npm) — note the package
+     scope uses a HYPHEN, "earendil-works", not a dot.
+   - Version pinned: 0.87.0
+   - License: MIT
+   - License text bundled at: /usr/share/licenses/pi/LICENSE (copied from
+     the installed npm package tree at build time)
+
+4. gh (GitHub CLI) and kubectl
+   - Installed as binaries only (no credential wiring in this pass; see
+     README.md "Known limitations"). gh is MIT-licensed; kubectl is
+     Apache-2.0. See /usr/share/licenses/gh/LICENSE and
+     /usr/share/licenses/kubectl/NOTE inside the built images.
+
+Out of scope for this pass
+---------------------------
+Published images would additionally redistribute each project's own
+dependencies — for example herdr vendors libghostty-vt and portable-pty
+(each under their own licenses), and pi has its own npm dependency tree. A
+full third-party dependency license inventory / SBOM has NOT been produced
+in this pass and should be generated before any registry publication of
+these images.
+
+The packaging work itself (Dockerfiles, compose.yaml, install/entrypoint
+scripts, documentation) is licensed MIT — see LICENSE.

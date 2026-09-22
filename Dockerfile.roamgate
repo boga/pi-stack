@@ -1,0 +1,106 @@
+# syntax=docker/dockerfile:1
+#
+# roamgate web-client image. debian:bookworm-slim (glibc) is mandatory —
+# roamgate v0.7.8 ships no musl/Alpine Linux artifact upstream.
+#
+# Two final targets:
+#   runtime        — native-arch build (default). Includes a build-time
+#                     `roamgate --version` smoke test bounded by
+#                     `timeout -s KILL 30`, purely as an emulation-stall
+#                     guard — there is no observed hang, this is defensive.
+#   runtime-cross   — cross-arch build via buildx (--platform=$BUILDPLATFORM
+#                     on the FETCH stage only). NEVER executes the roamgate
+#                     binary; verifies checksum only.
+FROM debian:bookworm-slim AS base
+
+ARG PUID=1000
+ARG PGID=1000
+
+LABEL org.opencontainers.image.title="pi-roamgate-docker / roamgate" \
+      org.opencontainers.image.description="roamgate web client for herdr" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.source="https://github.com/powerfooI/roamgate"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      tar \
+      xz-utils \
+      bash \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY docker/lib/create-user.sh /usr/local/lib/herdr-docker/create-user.sh
+COPY docker/lib/wait-for-herdr-socket.sh /usr/local/lib/herdr-docker/wait-for-herdr-socket.sh
+RUN chmod +x /usr/local/lib/herdr-docker/*.sh
+RUN /usr/local/lib/herdr-docker/create-user.sh roamgate roamgate "${PUID}" "${PGID}" /home/roamgate
+
+COPY docker/roamgate-entrypoint.sh /usr/local/bin/roamgate-entrypoint.sh
+RUN chmod +x /usr/local/bin/roamgate-entrypoint.sh
+
+# Pre-create every volume mountpoint at build time, owned by the target
+# user (roamgate's own config dir lives at ~/.config/herdr — NOT
+# ~/.config/roamgate — because roamgate is fundamentally a Herdr client
+# sharing Herdr's config namespace; this is a SEPARATE named volume from
+# herdr's own herdr_state, just the same relative path shape).
+# /run/herdr is chowned identically in Dockerfile.herdr, Dockerfile.pi and
+# Dockerfile.roamgate on purpose: Compose creates all three containers
+# (and thus all three mounts of the SAME shared herdr_socket volume)
+# before starting any of them, and which image's mountpoint content wins
+# the volume's initial copy-up is a race, not something to rely on
+# ordering for. Keeping ownership identical across all three images makes
+# the race moot.
+RUN mkdir -p /run/herdr /home/roamgate/.config/herdr /workspace \
+    && chmod 0700 /run/herdr \
+    && chown -R "${PUID}:${PGID}" /run/herdr /home/roamgate /workspace
+
+USER roamgate:roamgate
+WORKDIR /workspace
+ENV HOME=/home/roamgate
+ENV HOST=0.0.0.0
+ENV PORT=8787
+
+HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=6 \
+  CMD curl -fsS http://127.0.0.1:${PORT}/healthz || exit 1
+
+ENTRYPOINT ["/usr/local/bin/roamgate-entrypoint.sh"]
+CMD ["roamgate"]
+
+# ---------------------------------------------------------------------------
+FROM base AS runtime
+
+ARG TARGETARCH
+ARG ROAMGATE_VERSION=0.7.8
+
+USER root
+COPY docker/lib/install-roamgate.sh /usr/local/lib/herdr-docker/install-roamgate.sh
+RUN chmod +x /usr/local/lib/herdr-docker/install-roamgate.sh \
+    && /usr/local/lib/herdr-docker/install-roamgate.sh "${ROAMGATE_VERSION}" "${TARGETARCH}" 1
+USER roamgate:roamgate
+
+# ---------------------------------------------------------------------------
+FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS fetch-cross
+
+ARG TARGETARCH
+ARG ROAMGATE_VERSION=0.7.8
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY docker/lib/install-roamgate.sh /usr/local/lib/herdr-docker/install-roamgate.sh
+RUN chmod +x /usr/local/lib/herdr-docker/install-roamgate.sh \
+    && /usr/local/lib/herdr-docker/install-roamgate.sh "${ROAMGATE_VERSION}" "${TARGETARCH}" 0
+# Smoke test intentionally NOT run here (arg "0"): this stage builds on
+# BUILDPLATFORM to fetch a TARGETARCH binary — executing it would require
+# emulation. Verification is checksum-only (see install-roamgate.sh).
+
+# ---------------------------------------------------------------------------
+FROM base AS runtime-cross
+# Deliberately no --platform pin here: this stage builds for the requested
+# TARGETARCH like any other final stage. Only fetch-cross above forces
+# BUILDPLATFORM, and only for the fetch/verify work.
+ARG PUID=1000
+ARG PGID=1000
+
+COPY --from=fetch-cross --chown=${PUID}:${PGID} /usr/local/bin/roamgate /usr/local/bin/roamgate
+COPY --from=fetch-cross --chown=${PUID}:${PGID} /usr/share/licenses/roamgate /usr/share/licenses/roamgate
